@@ -112,6 +112,7 @@ int main()
         glBindTexture(GL_TEXTURE_2D, texture);
         ourShader.Use();
    glm::mat4 trans;
+   glm::mat4 view;
    trans = glm::translate(trans,glm::vec3(0.0f,0.0f,0.0f));
    count+=90;
     trans = glm::rotate(trans,(GLfloat)glfwGetTime() * glm::radians(180.0f),glm::vec3(0.0,0.0,1.0));
