@@ -8,14 +8,22 @@
 // GLFW
 #include <GLFW/glfw3.h>
 #include "Shader.h"
+#include "Camera.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
-
-
+void mouse_callback(GLFWwindow* window, double xPos, double yPos);
+void do_movement();
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 // Window dimensions
 const GLuint WIDTH = 800, HEIGHT = 600;
+GLfloat lastX = WIDTH/2;
+GLfloat lastY = HEIGHT/2;
+Camera camera(glm::vec3(0.0f,0.0f,3.0f));
+bool keys[1024];
+GLfloat deltaTime = 0.0f;
+GLfloat lastFrame = 0.0f;
 
 // The MAIN function, from here we start the application and run the game loop
 int main()
@@ -38,6 +46,10 @@ int main()
         return -1;
     }
     glfwMakeContextCurrent(window);
+    glfwSetKeyCallback(window, key_callback);
+    glfwSetCursorPosCallback(window, mouse_callback);
+    glfwSetInputMode(window, GLFW_CURSOR,GLFW_CURSOR_DISABLED);
+    glfwSetScrollCallback(window, scroll_callback);
     // Set this to true so GLEW knows to use a modern approach to retrieving function pointers and extensions
     glewExperimental = GL_TRUE;
     // Initialize GLEW to setup the OpenGL Function pointers
@@ -148,23 +160,21 @@ int main()
     glm::vec4 vec(1.0f,0.0f,0.0f,1.0f);
     // Game loop
     GLfloat pos = 0.5f;
-    while (!glfwWindowShouldClose(window))
+        while (!glfwWindowShouldClose(window))
     {
         // Check if any events have been activiated (key pressed, mouse moved etc.) and call corresponding response functions
         glfwPollEvents();
+        do_movement();
         // Swap the screen buffers
+        GLfloat currentFrame = glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
 
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glBindTexture(GL_TEXTURE_2D, texture);
         ourShader.Use();
-        glm::vec3 cameraPos = glm::vec3(0.0f,0.0f,3.0f);
-        glm::vec3 cameraTarget = glm::vec3(0.0f,0.0f,0.0f);
-        glm::vec3 cameraDirection = glm::normalize(cameraPos - cameraTarget);
-        glm::vec3 up = glm::vec3(0.0f,1.0f,0.0f);
-        glm::vec3 cameraRight = glm::normalize(glm::cross(up,cameraDirection));
-        glm::vec3 cameraUp = glm::cross(cameraDirection,cameraRight);
-        glm::mat4 trans;
+       glm::mat4 trans;
         glm::mat4 projection;
         glm::mat4 view;
         GLint modelLogic = glGetUniformLocation(ourShader.Program, "model");
@@ -174,8 +184,8 @@ int main()
         GLfloat radius = 10.0f;
         GLfloat camX = sin(glfwGetTime()) * radius;
         GLfloat camY = cos(glfwGetTime()) * radius;
-        view = glm::lookAt(glm::vec3(camX,0.0f,camY), glm::vec3(0.0f,0.0f,0.0f), glm::vec3(0.0f,1.0f,0.0f));
-        projection = glm::perspective(glm::radians(45.0f),(float)WIDTH/(float)HEIGHT, 0.1f,100.0f);
+        view = camera.GetViewMatrix();
+        projection = glm::perspective(glm::radians(camera.Zoom),(float)WIDTH/(float)HEIGHT, 0.1f,100.0f);
         glUniformMatrix4fv(viewLogic,1,GL_FALSE,glm::value_ptr(view));
         glUniformMatrix4fv(projLogic,1,GL_FALSE,glm::value_ptr(projection));
 
@@ -200,7 +210,6 @@ int main()
         glBindVertexArray(0);
         glfwSwapBuffers(window);
 
-        glfwSetKeyCallback(window, key_callback);
     }
     glDeleteVertexArrays(1,&VAO);
     glDeleteBuffers(1,&VBO);
@@ -210,11 +219,48 @@ int main()
     return 0;
 }
 
+void do_movement()
+{
+    if(keys[GLFW_KEY_W])
+      camera.ProcessKeyboard(FORWARD, deltaTime);
+    if(keys[GLFW_KEY_S])
+      camera.ProcessKeyboard(BACKWARD, deltaTime);
+    if(keys[GLFW_KEY_A])
+      camera.ProcessKeyboard(LEFT, deltaTime);
+    if(keys[GLFW_KEY_D])
+      camera.ProcessKeyboard(RIGHT, deltaTime);
+
+}
+
+void scroll_callback(GLFWwindow* window, double xoffset,double yoffset){
+  camera.ProcessMouseScroll(yoffset);
+ }
+
+bool firstMouse = true;
+void mouse_callback(GLFWwindow* window, double xpos, double ypos){
+ if(firstMouse){
+    lastX = xpos;
+    lastY = ypos;
+    firstMouse = false;
+  }
+  GLfloat xoffset = xpos - lastX;
+  GLfloat yoffset = lastY - ypos;
+
+  lastX = xpos;
+  lastY = ypos;
+  camera.ProcessMouseMovement(xoffset, yoffset);
+  }
+
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode)
 {
+
     // When a user presses the escape key, we set the WindowShouldClose property to true,
     // closing the application
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
       glfwSetWindowShouldClose(window, GL_TRUE);
-}
+    if(action == GLFW_PRESS)
+      keys[key] = true;
+    else if(action == GLFW_RELEASE)
+      keys[key] = false;
+   }
 
